@@ -4,10 +4,10 @@
   "Author": [
     {
       "Key": "English",
-      "Value": "Workshop Tool Mod"
+      "Value": "PP Modding Community"
     }
   ],
-  "Version": "2.0",
+  "Version": "3.0",
   "Name": [
     {
       "Key": "English",
@@ -17,7 +17,7 @@
   "Description": [
     {
       "Key": "English",
-      "Value": "Configure custom personal perk sets for each class. Each class has configurable sets (Assault/Sniper/Priest/Technician: 5 sets, Heavy/Berserker/Infiltrator: 3 sets). Enable/disable entire sets and toggle individual perks within each set."
+      "Value": "Configure custom personal perk sets for each soldier class. Each class has multiple configurable perk sets (Assault/Sniper/Priest/Technician: 5 sets each, Heavy/Berserker/Infiltrator: 3 sets each). Allows enabling/disabling entire perk sets and toggling individual perks within each set through mod configuration."
     }
   ],
   "Dependencies": []
