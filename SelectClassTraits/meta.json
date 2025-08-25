@@ -1,0 +1,24 @@
+{
+  "ID": "com.modder.SelectClassTraits",
+  "AssemblyName": "SelectClassTraits.dll",
+  "Author": [
+    {
+      "Key": "English",
+      "Value": "Workshop Tool Mod"
+    }
+  ],
+  "Version": "2.0",
+  "Name": [
+    {
+      "Key": "English",
+      "Value": "Select Class Traits"
+    }
+  ],
+  "Description": [
+    {
+      "Key": "English",
+      "Value": "Configure custom personal perk sets for each class. Each class has configurable sets (Assault/Sniper/Priest/Technician: 5 sets, Heavy/Berserker/Infiltrator: 3 sets). Enable/disable entire sets and toggle individual perks within each set."
+    }
+  ],
+  "Dependencies": []
+}
