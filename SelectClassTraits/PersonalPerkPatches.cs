@@ -21,6 +21,9 @@ namespace SelectClassTraits
 
         private static readonly BindingFlags Any =
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        
+        // Track characters that have already been processed to prevent multiple overrides
+        private static readonly HashSet<string> ProcessedCharacters = new HashSet<string>();
 
         private static Type _abilityTrackType;
         private static Type _slotType;
@@ -126,6 +129,26 @@ namespace SelectClassTraits
                     callerType.Contains("GeoPhoenixpediaEntriesDbDef"))
                 {
                     return;
+                }
+
+                // Check if this is a tutorial character - don't override them
+                if (IsTutorialCharacter(__instance))
+                {
+                    SelectClassTraitsMain.LogDebug("Detected tutorial character; leaving vanilla result.");
+                    return;
+                }
+
+                // Get character identifier to prevent multiple overrides
+                var characterId = GetCharacterId(__instance);
+                if (!string.IsNullOrEmpty(characterId))
+                {
+                    if (ProcessedCharacters.Contains(characterId))
+                    {
+                        SelectClassTraitsMain.LogDebug($"Character {characterId} already processed; leaving vanilla result.");
+                        return;
+                    }
+                    ProcessedCharacters.Add(characterId);
+                    SelectClassTraitsMain.LogDebug($"Processing character {characterId} for the first time.");
                 }
 
                 var (className, rng, found) = ResolveContext(__instance, __originalMethod);
@@ -796,6 +819,122 @@ namespace SelectClassTraits
                 SelectClassTraitsMain.LogWarning($"Could not resolve TacticalAbilityDef for '{perkDisplay}'.");
 
             return def;
+        }
+
+        // ---------- Tutorial character detection ----------
+
+        private static readonly HashSet<string> TutorialCharacterNames = new HashSet<string>
+        {
+            "Sophia Brown", "Jacob Eber", "Omar Ashour", "Takeshi Sato", "Irina Sokolova"
+        };
+
+        private static readonly HashSet<string> TutorialCharacterDefGuids = new HashSet<string>
+        {
+            "400f644c-41f2-c534-1b99-34d48400b7f7", // PX_Sophia_Tutorial2_TacCharacterDef
+            "2f7a41a8-d68a-3374-1a13-16f18425d7bb", // PX_Jacob_Tutorial2_TacCharacterDef
+            "8c9986d9-d875-e0e4-8978-578af6eba952", // PX_Omar_Tutorial3_TacCharacterDef
+            "d008b763-7eac-e7f4-e9c4-57eec8bb0c1e", // PX_Takeshi_Tutorial3_TacCharacterDef
+            "e3c06e40-0543-fa04-5a9d-7ff43410b1e0"  // PX_Irina_Tutorial3_TacCharacterDef
+        };
+
+        private static bool IsTutorialCharacter(object instance)
+        {
+            if (instance == null) return false;
+
+            try
+            {
+                // Check by DisplayName
+                var displayName = GetMemberValue(instance, "DisplayName") as string;
+                if (!string.IsNullOrEmpty(displayName) && TutorialCharacterNames.Contains(displayName))
+                {
+                    SelectClassTraitsMain.LogDebug($"Detected tutorial character by DisplayName: {displayName}");
+                    return true;
+                }
+
+                // Check by template/def name or GUID
+                var template = GetMemberValue(instance, "Template") ?? 
+                              GetMemberValue(instance, "TemplateDef") ?? 
+                              GetMemberValue(instance, "TacCharacterDef");
+                
+                if (template != null)
+                {
+                    var templateName = TryGetName(template);
+                    if (!string.IsNullOrEmpty(templateName))
+                    {
+                        if (templateName.Contains("Sophia_Tutorial") || templateName.Contains("Jacob_Tutorial") || 
+                            templateName.Contains("Omar_Tutorial") || templateName.Contains("Takeshi_Tutorial") || 
+                            templateName.Contains("Irina_Tutorial"))
+                        {
+                            SelectClassTraitsMain.LogDebug($"Detected tutorial character by template name: {templateName}");
+                            return true;
+                        }
+                    }
+
+                    // Check GUID if available
+                    var guid = GetMemberValue(template, "Guid")?.ToString();
+                    if (!string.IsNullOrEmpty(guid) && TutorialCharacterDefGuids.Contains(guid))
+                    {
+                        SelectClassTraitsMain.LogDebug($"Detected tutorial character by GUID: {guid}");
+                        return true;
+                    }
+                }
+
+                // Check nested objects for character identity
+                string[] childObjects = { "Owner", "Character", "Identity", "UnitType", "Descriptor" };
+                foreach (var childName in childObjects)
+                {
+                    var child = GetMemberValue(instance, childName);
+                    if (child != null && IsTutorialCharacter(child)) // Recursive check
+                        return true;
+                }
+            }
+            catch (Exception e)
+            {
+                SelectClassTraitsMain.LogWarning($"Error in IsTutorialCharacter: {e.Message}");
+            }
+
+            return false;
+        }
+
+        // ---------- Character identification ----------
+
+        private static string GetCharacterId(object instance)
+        {
+            if (instance == null) return null;
+
+            try
+            {
+                // Try to find unique identifiers in order of preference
+                var guid = GetMemberValue(instance, "Guid")?.ToString();
+                if (!string.IsNullOrEmpty(guid)) return $"guid:{guid}";
+
+                var id = GetMemberValue(instance, "Id")?.ToString();
+                if (!string.IsNullOrEmpty(id)) return $"id:{id}";
+
+                var name = GetMemberValue(instance, "Name")?.ToString();
+                if (!string.IsNullOrEmpty(name)) return $"name:{name}";
+
+                var displayName = GetMemberValue(instance, "DisplayName")?.ToString();
+                if (!string.IsNullOrEmpty(displayName)) return $"display:{displayName}";
+
+                // Try nested objects
+                var owner = GetMemberValue(instance, "Owner") ?? 
+                           GetMemberValue(instance, "Character") ?? 
+                           GetMemberValue(instance, "Descriptor");
+                if (owner != null)
+                {
+                    var nestedId = GetCharacterId(owner);
+                    if (!string.IsNullOrEmpty(nestedId)) return $"nested:{nestedId}";
+                }
+
+                // As last resort, use object reference hash
+                return $"ref:{instance.GetHashCode()}";
+            }
+            catch (Exception e)
+            {
+                SelectClassTraitsMain.LogWarning($"Error getting character ID: {e.Message}");
+                return $"ref:{instance.GetHashCode()}";
+            }
         }
 
         // ---------- small utils ----------
